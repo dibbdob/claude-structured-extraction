@@ -85,6 +85,7 @@ dollar.
   example-leak check and the missing-batch-result check.
 - **Verified by compiling against `Anthropic` 13.8.0:** the request and response shapes, including the
   beta fallback fields and the batch types.
+- **Run on GitHub:** `./build.sh`, by the `build` workflow on every push to `main` and every pull request.
 - **Not yet verified by a live call:** anything. `eval/results/` is empty on purpose, and ADR 0006 is
   proposed, not accepted. The numbers will come from the first runs, not from anyone's expectation.
 
