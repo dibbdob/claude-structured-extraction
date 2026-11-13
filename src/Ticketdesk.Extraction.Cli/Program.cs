@@ -2,12 +2,14 @@ using System.Globalization;
 using System.Text.Json;
 using Anthropic;
 using Ticketdesk.Extraction;
+using Ticketdesk.Extraction.Batches;
 using Ticketdesk.Extraction.Evaluation;
 
 // Both commands call the Claude API and are billed. The build never runs either.
 //
 //   extract   read one email from standard input and print what was extracted
 //   eval      score a model on data/tickets.jsonl; prints a cost estimate and stops unless --yes is given
+//   backfill  extract every email in data/tickets.jsonl through the Message Batches API, at half price
 //
 //   echo "API down since 9am, Enterprise" | dotnet run --project src/Ticketdesk.Extraction.Cli -- extract
 //   dotnet run --project src/Ticketdesk.Extraction.Cli -- eval --model claude-haiku-5-5 --label haiku
@@ -51,8 +53,30 @@ switch (options.Command)
         return 0;
     }
 
+    case "backfill":
+    {
+        var tickets = LabelledTicket.Load(Path.Combine("data", "tickets.jsonl")).Take(options.Limit).ToList();
+        Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{tickets.Count} emails as one batch on {options.Model}: about ${Estimate.For(options.Model, tickets) / 2:0.00} (batch rate, half the live estimate)."));
+        if (!options.Yes)
+        {
+            Console.Error.WriteLine("Nothing was sent. Run again with --yes to spend it.");
+            return 3;
+        }
+
+        var backfill = new Backfill(new AnthropicBatchGateway(new AnthropicClient()), options.Model, TimeSpan.FromSeconds(30));
+        var result = await backfill.Run(tickets.Select(t => (t.Id, t.Text)).ToList());
+        Console.WriteLine($"extracted: {result.Extracted.Count}  needs another pass: {result.NeedsAnotherPass.Count}");
+        foreach (var (id, kind) in result.NeedsAnotherPass.OrderBy(p => p.Key, StringComparer.Ordinal))
+        {
+            Console.WriteLine($"  {id}: {kind}");
+        }
+
+        return 0;
+    }
+
     default:
-        Console.Error.WriteLine("usage: extract [--model M] < email.txt | eval --model M --label L [--limit N] [--yes]");
+        Console.Error.WriteLine("usage: extract [--model M] < email.txt | eval --model M --label L [--limit N] [--yes] | backfill --model M [--limit N] [--yes]");
         return 2;
 }
 

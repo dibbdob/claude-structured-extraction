@@ -14,6 +14,12 @@ public enum FailureKind
 
     /// <summary>The extraction broke a rule, and still did after one correction.</summary>
     InvalidAfterRetry,
+
+    /// <summary>The extraction broke a rule and had no chance to correct it: a batch has no second turn.</summary>
+    BrokeRule,
+
+    /// <summary>The batch request itself errored, was cancelled, or expired before it ran.</summary>
+    NotRun,
 }
 
 /// <summary>

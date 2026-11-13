@@ -17,7 +17,7 @@ public sealed class TicketExtractor(IModelGateway gateway, string model = "claud
     /// </summary>
     public async Task<ExtractionResult> Extract(string email, CancellationToken cancellationToken = default)
     {
-        var turns = new List<Turn> { Turn.User(ExtractionPrompt.UserTurn(email)) };
+        var turns = RequestFor(model, email).Turns.ToList();
         var usage = new TokenUsage(0, 0);
 
         for (var attempt = 1; ; attempt++)
@@ -52,6 +52,23 @@ public sealed class TicketExtractor(IModelGateway gateway, string model = "claud
                 "That extraction breaks these rules:\n- " + string.Join("\n- ", problems) +
                 "\nReply with the corrected extraction for the same email."));
         }
+    }
+
+    /// <summary>The request for one email, exactly as <see cref="Extract"/> first sends it.</summary>
+    public static ModelRequest RequestFor(string model, string email) =>
+        new(model, ExtractionPrompt.SystemPrompt, [Turn.User(ExtractionPrompt.UserTurn(email))], Schema, CacheSystem: true);
+
+    /// <summary>
+    /// Accept a reply with no chance to correct it: stop reason, shape and rules, as one check. A batch
+    /// uses this, since it cannot ask a second question in the same request.
+    /// </summary>
+    public static TicketExtraction Accept(ModelReply reply)
+    {
+        var extraction = Parse(reply);
+        var problems = ExtractionRules.Check(extraction);
+        return problems.Count == 0
+            ? extraction
+            : throw new ExtractionFailedException(FailureKind.BrokeRule, "The extraction broke a rule.", reply, problems);
     }
 
     private static TicketExtraction Parse(ModelReply reply)
