@@ -1,7 +1,11 @@
 namespace Ticketdesk.Extraction;
 
 /// <summary>One request to a model, in the extractor's terms rather than the SDK's.</summary>
-public sealed record ModelRequest(string Model, string System, string UserText);
+public sealed record ModelRequest(
+    string Model,
+    string System,
+    string UserText,
+    IReadOnlyDictionary<string, System.Text.Json.JsonElement>? Schema = null);
 
 /// <summary>Token counts for one call, as the API reports them.</summary>
 public sealed record TokenUsage(long Input, long Output, long CacheRead = 0, long CacheWrite = 0);
