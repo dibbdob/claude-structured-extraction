@@ -1,20 +1,90 @@
-﻿using System.Text.Json;
+using System.Globalization;
+using System.Text.Json;
 using Anthropic;
 using Ticketdesk.Extraction;
+using Ticketdesk.Extraction.Evaluation;
 
-// extract: read one email from standard input and print what was extracted from it.
+// Both commands call the Claude API and are billed. The build never runs either.
+//
+//   extract   read one email from standard input and print what was extracted
+//   eval      score a model on data/tickets.jsonl; prints a cost estimate and stops unless --yes is given
+//
 //   echo "API down since 9am, Enterprise" | dotnet run --project src/Ticketdesk.Extraction.Cli -- extract
-// This calls the Claude API and is billed. The build never runs it.
+//   dotnet run --project src/Ticketdesk.Extraction.Cli -- eval --model claude-haiku-5-5 --label haiku
+//   dotnet run --project src/Ticketdesk.Extraction.Cli -- eval --model claude-haiku-5-5 --label haiku --yes
 
-if (args is not ["extract"])
+var options = Options.Parse(args);
+var gateway = new AnthropicGateway(new AnthropicClient());
+
+switch (options.Command)
 {
-    Console.Error.WriteLine("usage: Ticketdesk.Extraction.Cli extract < email.txt");
-    return 2;
+    case "extract":
+    {
+        var email = await Console.In.ReadToEndAsync();
+        var result = await new TicketExtractor(gateway, options.Model).Extract(email);
+        Console.WriteLine(JsonSerializer.Serialize(result.Extraction, new JsonSerializerOptions { WriteIndented = true }));
+        Console.Error.WriteLine($"attempts: {result.Attempts}  answered by: {result.AnsweredBy}  tokens in/out: {result.Usage.Input}/{result.Usage.Output}");
+        return 0;
+    }
+
+    case "eval":
+    {
+        var tickets = LabelledTicket.Load(Path.Combine("data", "tickets.jsonl")).Take(options.Limit).ToList();
+        var estimate = Estimate.For(options.Model, tickets);
+        Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{tickets.Count} tickets on {options.Model}: about ${estimate:0.00} at list prices as of {Prices.AsOf} (a rough upper estimate; retries and thinking vary)."));
+        if (!options.Yes)
+        {
+            Console.Error.WriteLine("Nothing was sent. Run again with --yes to spend it.");
+            return 3;
+        }
+
+        var run = await new Evaluator(model => new TicketExtractor(gateway, model)).Run(options.Label, options.Model, tickets);
+        var stamp = run.StartedAt.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture);
+        Directory.CreateDirectory(Path.Combine("eval", "runs"));
+        Directory.CreateDirectory(Path.Combine("eval", "results"));
+        await File.WriteAllTextAsync(Path.Combine("eval", "runs", $"{options.Label}-{stamp}.json"),
+            JsonSerializer.Serialize(run, new JsonSerializerOptions { WriteIndented = true }));
+        var report = EvalReport.Markdown(run);
+        await File.WriteAllTextAsync(Path.Combine("eval", "results", $"{options.Label}.md"), report);
+        Console.WriteLine(report);
+        return 0;
+    }
+
+    default:
+        Console.Error.WriteLine("usage: extract [--model M] < email.txt | eval --model M --label L [--limit N] [--yes]");
+        return 2;
 }
 
-var email = await Console.In.ReadToEndAsync();
-var extractor = new TicketExtractor(new AnthropicGateway(new AnthropicClient()));
-var result = await extractor.Extract(email);
-Console.WriteLine(JsonSerializer.Serialize(result.Extraction, new JsonSerializerOptions { WriteIndented = true }));
-Console.Error.WriteLine($"attempts: {result.Attempts}  answered by: {result.AnsweredBy}  tokens in/out: {result.Usage.Input}/{result.Usage.Output}");
-return 0;
+internal sealed record Options(string Command, string Model, string Label, int Limit, bool Yes)
+{
+    public static Options Parse(string[] args)
+    {
+        string Value(string name, string fallback)
+        {
+            var i = Array.IndexOf(args, name);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : fallback;
+        }
+
+        var model = Value("--model", "claude-opus-5-5");
+        return new Options(
+            args.Length > 0 ? args[0] : string.Empty,
+            model,
+            Value("--label", model),
+            int.Parse(Value("--limit", "1000"), CultureInfo.InvariantCulture),
+            args.Contains("--yes"));
+    }
+}
+
+internal static class Estimate
+{
+    // Roughly 3.5 characters per token for English text, and a generous allowance for the reply and any
+    // thinking at low effort. The first request writes the cache; later ones read it.
+    public static decimal For(string model, IReadOnlyList<LabelledTicket> tickets)
+    {
+        var prompt = ExtractionPrompt.SystemPrompt.Length / 3.5m;
+        var price = Prices.PerMillionTokens[model];
+        var perTicket = tickets.Select(t => price.Cost(new TokenUsage((long)(t.Text.Length / 3.5m) + 400, 600, (long)prompt))).Sum();
+        return perTicket + price.Cost(new TokenUsage(0, 0, 0, (long)prompt));
+    }
+}
