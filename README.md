@@ -29,6 +29,7 @@ git log --graph --format='%h %s%n%b' main
 | 5 | `eval-harness` | Nothing so far had been measured |
 | 6 | `batch-backfill` | A backlog nobody is waiting on was priced as if someone were |
 | 7 | `model-routing` | Sending every email to the strongest model may pay for strength most do not need, or may not |
+| 8 | `live-evals` | Nothing had yet called the API: the route, and every number in the README, were still claims |
 
 Some findings in the history came from checking the checks: a failed extraction's cost counted only its
 last reply; a fallback model's reply would have crashed the pricing; a test asserted the wrong shape of
