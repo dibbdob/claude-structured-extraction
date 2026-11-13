@@ -20,8 +20,9 @@ public sealed class TicketExtractorTests
 
         await new TicketExtractor(gateway).Extract(email);
 
-        await Assert.That(gateway.Requests.Single().Turns.Single().Text).IsEqualTo(email);
+        await Assert.That(gateway.Requests.Single().Turns.Single().Text).IsEqualTo($"<email>\n{email}\n</email>");
         await Assert.That(gateway.Requests.Single().System).DoesNotContain(email);
+        await Assert.That(gateway.Requests.Single().CacheSystem).IsTrue();
     }
 
     [Test]

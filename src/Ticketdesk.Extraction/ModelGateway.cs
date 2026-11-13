@@ -15,7 +15,8 @@ public sealed record ModelRequest(
     string Model,
     string System,
     IReadOnlyList<Turn> Turns,
-    IReadOnlyDictionary<string, JsonElement>? Schema = null);
+    IReadOnlyDictionary<string, JsonElement>? Schema = null,
+    bool CacheSystem = false);
 
 /// <summary>Token counts for one call, as the API reports them.</summary>
 public sealed record TokenUsage(long Input, long Output, long CacheRead = 0, long CacheWrite = 0)
