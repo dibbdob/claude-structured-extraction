@@ -15,5 +15,6 @@ if (args is not ["extract"])
 var email = await Console.In.ReadToEndAsync();
 var extractor = new TicketExtractor(new AnthropicGateway(new AnthropicClient()));
 var result = await extractor.Extract(email);
-Console.WriteLine(JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true }));
+Console.WriteLine(JsonSerializer.Serialize(result.Extraction, new JsonSerializerOptions { WriteIndented = true }));
+Console.Error.WriteLine($"attempts: {result.Attempts}  answered by: {result.AnsweredBy}  tokens in/out: {result.Usage.Input}/{result.Usage.Output}");
 return 0;
