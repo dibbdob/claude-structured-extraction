@@ -17,6 +17,10 @@ public static class EvalReport
         var u = run.Usage;
         md.AppendLine(c, $"- Tokens: {u.Input:N0} in, {u.Output:N0} out, {u.CacheRead:N0} cache read, {u.CacheWrite:N0} cache write");
         md.AppendLine(c, $"- Cost: ${run.Cost:0.0000} at list prices as of {Prices.AsOf}; ${run.Cost / Math.Max(1, run.Outcomes.Count):0.000000} per ticket");
+        var allCorrect = run.AllFields.Correct;
+        md.AppendLine(allCorrect > 0
+            ? string.Create(c, $"- Cost per ticket with all six fields right: ${run.Cost / allCorrect:0.000000} (the number to compare configurations on)")
+            : "- Cost per ticket with all six fields right: none were");
         md.AppendLine();
 
         md.AppendLine("| Field | Correct | Accuracy | 95% interval |").AppendLine("|---|---|---|---|");

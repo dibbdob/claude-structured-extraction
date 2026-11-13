@@ -25,6 +25,9 @@ public sealed record TokenUsage(long Input, long Output, long CacheRead = 0, lon
         new(a.Input + b.Input, a.Output + b.Output, a.CacheRead + b.CacheRead, a.CacheWrite + b.CacheWrite);
 }
 
+/// <summary>Tokens one model used. A routed extraction can spend on more than one, at different prices.</summary>
+public sealed record ModelSpend(string Model, TokenUsage Usage);
+
 /// <summary>What came back: the text, why generation stopped, which model answered, and what it used.</summary>
 public sealed record ModelReply(string Text, string StopReason, TokenUsage Usage, string Model);
 

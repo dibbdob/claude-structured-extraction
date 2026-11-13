@@ -40,6 +40,9 @@ public sealed class ExtractionFailedException(
 
     public int Attempts { get; } = attempts;
 
+    /// <summary>Tokens per model across the whole extraction, earlier models in a route included.</summary>
+    public IReadOnlyList<ModelSpend> Spend { get; init; } = [new(reply.Model, usage ?? reply.Usage)];
+
     public ExtractionFailedException Spent(TokenUsage total, int attemptsSoFar) =>
         new(this.Kind, this.Message, this.Reply, this.Problems, total, attemptsSoFar);
 }

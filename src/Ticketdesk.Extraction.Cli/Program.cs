@@ -14,6 +14,7 @@ using Ticketdesk.Extraction.Evaluation;
 //   echo "API down since 9am, Enterprise" | dotnet run --project src/Ticketdesk.Extraction.Cli -- extract
 //   dotnet run --project src/Ticketdesk.Extraction.Cli -- eval --model claude-haiku-5-5 --label haiku
 //   dotnet run --project src/Ticketdesk.Extraction.Cli -- eval --model claude-haiku-5-5 --label haiku --yes
+//   dotnet run --project src/Ticketdesk.Extraction.Cli -- eval --model route:haiku-then-opus --label route
 
 var options = Options.Parse(args);
 var gateway = new AnthropicGateway(new AnthropicClient());
@@ -32,7 +33,10 @@ switch (options.Command)
     case "eval":
     {
         var tickets = LabelledTicket.Load(Path.Combine("data", "tickets.jsonl")).Take(options.Limit).ToList();
-        var estimate = Estimate.For(options.Model, tickets);
+        // A route can spend on both models; estimate it as if every ticket reached the stronger one.
+        var estimate = options.Model == "route:haiku-then-opus"
+            ? Estimate.For("claude-haiku-5-5", tickets) + Estimate.For("claude-opus-5-5", tickets)
+            : Estimate.For(options.Model, tickets);
         Console.Error.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"{tickets.Count} tickets on {options.Model}: about ${estimate:0.00} at list prices as of {Prices.AsOf} (a rough upper estimate; retries and thinking vary)."));
         if (!options.Yes)
@@ -41,7 +45,15 @@ switch (options.Command)
             return 3;
         }
 
-        var run = await new Evaluator(model => new TicketExtractor(gateway, model)).Run(options.Label, options.Model, tickets);
+        IExtractor extractor = options.Model switch
+        {
+            // The route under test in ADR 0006: Haiku first, Opus when Haiku fails or needs a correction.
+            "route:haiku-then-opus" => new RoutedExtractor(
+                new TicketExtractor(gateway, "claude-haiku-5-5"), new TicketExtractor(gateway, "claude-opus-5-5")),
+            _ => new TicketExtractor(gateway, options.Model),
+        };
+        var asked = options.Model.StartsWith("route:", StringComparison.Ordinal) ? "claude-haiku-5-5" : options.Model;
+        var run = await new Evaluator().Run(options.Label, asked, extractor, tickets);
         var stamp = run.StartedAt.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture);
         Directory.CreateDirectory(Path.Combine("eval", "runs"));
         Directory.CreateDirectory(Path.Combine("eval", "results"));
