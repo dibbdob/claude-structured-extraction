@@ -1,0 +1,5 @@
+bin/
+obj/
+eval/runs/
+.DS_Store
+.build.lock/

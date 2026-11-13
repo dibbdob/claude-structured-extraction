@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ticketdesk.Extraction.Cli/Ticketdesk.Extraction.Cli.csproj" />
+    <Project Path="src/Ticketdesk.Extraction/Ticketdesk.Extraction.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ticketdesk.Extraction.Tests/Ticketdesk.Extraction.Tests.csproj" />
+  </Folder>
+</Solution>
