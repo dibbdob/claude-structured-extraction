@@ -102,7 +102,7 @@ internal sealed record Options(string Command, string Model, string Label, int L
             return i >= 0 && i + 1 < args.Length ? args[i + 1] : fallback;
         }
 
-        var model = Value("--model", "claude-opus-5-5");
+        var model = Value("--model", "claude-haiku-5-5");
         return new Options(
             args.Length > 0 ? args[0] : string.Empty,
             model,

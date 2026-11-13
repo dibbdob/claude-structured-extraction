@@ -29,6 +29,7 @@ git log --graph --format='%h %s%n%b' main
 | 5 | `eval-harness` | Nothing so far had been measured |
 | 6 | `batch-backfill` | A backlog nobody is waiting on was priced as if someone were |
 | 7 | `model-routing` | Sending every email to the strongest model may pay for strength most do not need, or may not |
+| 8 | `live-evals` | Nothing had yet called the API: the route, and every number in the README, were still claims |
 
 Some findings in the history came from checking the checks: a failed extraction's cost counted only its
 last reply; a fallback model's reply would have crashed the pricing; a test asserted the wrong shape of
@@ -85,8 +86,14 @@ dollar.
   example-leak check and the missing-batch-result check.
 - **Verified by compiling against `Anthropic` 13.8.0:** the request and response shapes, including the
   beta fallback fields and the batch types.
-- **Not yet verified by a live call:** anything. `eval/results/` is empty on purpose, and ADR 0006 is
-  proposed, not accepted. The numbers will come from the first runs, not from anyone's expectation.
+- **Run on GitHub:** `./build.sh`, by the `build` workflow on every push to `main` and every pull request.
+- **Run live, on 2026-11-13:** the three evals in ADR 0006, on all thirty tickets, for about 12 cents in
+  all. Haiku and Opus at low effort each got 23 of 30 fully right; the route escalated nothing. ADR 0006 is
+  rejected, and the CLI's default model is now Haiku. The first run also found that the SDK sends a null
+  field as JSON null, which the API refused; the gateway now leaves the fallback fields out entirely, and
+  a test reads the request to check it.
+- **Not yet verified by a live call:** the Message Batches backfill, and a refusal answered by the
+  server-side fallback; no ticket in the set triggered one.
 
 ## Layout
 
