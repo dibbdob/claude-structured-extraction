@@ -24,7 +24,13 @@ public sealed class AnthropicGateway(AnthropicClient client) : IModelGateway
             {
                 Model = request.Model,
                 MaxTokens = 2048,
-                System = request.System,
+                // A cache breakpoint on the system prompt: the schema and system prompt are the stable
+                // prefix, the email is not. A prefix shorter than the model's minimum silently does not
+                // cache, so the eval reports cache-read tokens rather than assuming a hit.
+                System = new List<BetaTextBlockParam>
+                {
+                    new() { Text = request.System, CacheControl = request.CacheSystem ? new BetaCacheControlEphemeral() : null },
+                },
                 Messages = request.Turns.Select(ToParam).ToList(),
                 // Classification does well at low effort; Claude Opus 5.5 defaults to medium.
                 OutputConfig = new()
