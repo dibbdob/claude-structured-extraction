@@ -25,7 +25,16 @@ public sealed class TicketExtractor(IModelGateway gateway, string model = "claud
             var reply = await gateway.Complete(new ModelRequest(model, ExtractionPrompt.SystemPrompt, turns, Schema, CacheSystem: true), cancellationToken);
             usage += reply.Usage;
 
-            var extraction = Parse(reply);
+            TicketExtraction extraction;
+            try
+            {
+                extraction = Parse(reply);
+            }
+            catch (ExtractionFailedException failure)
+            {
+                throw failure.Spent(usage, attempt);
+            }
+
             var problems = ExtractionRules.Check(extraction);
             if (problems.Count == 0)
             {
@@ -35,7 +44,7 @@ public sealed class TicketExtractor(IModelGateway gateway, string model = "claud
             if (attempt == 2)
             {
                 throw new ExtractionFailedException(
-                    FailureKind.InvalidAfterRetry, "The extraction still broke a rule after one correction.", reply, problems);
+                    FailureKind.InvalidAfterRetry, "The extraction still broke a rule after one correction.", reply, problems, usage, attempt);
             }
 
             turns.Add(Turn.Assistant(reply.Text));
