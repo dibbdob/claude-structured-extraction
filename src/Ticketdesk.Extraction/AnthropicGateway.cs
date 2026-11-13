@@ -19,7 +19,13 @@ public sealed class AnthropicGateway(AnthropicClient client) : IModelGateway
                 System = request.System,
                 Messages = [new UserMessageParam { Content = request.UserText }],
                 // Classification does well at low effort; Claude Opus 5.5 defaults to medium.
-                OutputConfig = new OutputConfig { Effort = Effort.Low },
+                OutputConfig = new OutputConfig
+                {
+                    Effort = Effort.Low,
+                    Format = request.Schema is { } schema
+                        ? new JsonOutputFormat { Schema = schema.ToDictionary() }
+                        : null,
+                },
             },
             cancellationToken: cancellationToken);
 
