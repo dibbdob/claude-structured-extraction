@@ -23,8 +23,8 @@ public sealed class EvaluationTests
         new TicketExtraction(l.Category, l.Outage, l.Plan, l.ProductArea, l.Sentiment, l.NeedsHuman, "A summary."));
 
     private static Task<EvalRun> Run(Dictionary<string, (string, string, string)> script) =>
-        new Evaluator(m => new TicketExtractor(new ScriptedByEmail(script), m), parallelism: 1)
-            .Run("test", "claude-haiku-5-5", [Outage, Question]);
+        new Evaluator(parallelism: 1)
+            .Run("test", "claude-haiku-5-5", new TicketExtractor(new ScriptedByEmail(script), "claude-haiku-5-5"), [Outage, Question]);
 
     [Test]
     public async Task Each_field_is_scored_on_its_own()
@@ -107,5 +107,6 @@ public sealed class EvaluationTests
         await Assert.That(report).Contains("have not been shown to differ");
         await Assert.That(report).Contains("| t01 | sentiment | frustrated | angry |");
         await Assert.That(report).Contains(Prices.AsOf);
+        await Assert.That(report).Contains("Cost per ticket with all six fields right");
     }
 }

@@ -2,11 +2,20 @@ namespace Ticketdesk.Extraction;
 
 using System.Text.Json;
 
-/// <summary>The extraction, and what it took to get it.</summary>
-public sealed record ExtractionResult(TicketExtraction Extraction, int Attempts, TokenUsage Usage, string AnsweredBy);
+/// <summary>The extraction, and what it took to get it: attempts, tokens, the model that answered, and spend per model.</summary>
+public sealed record ExtractionResult(TicketExtraction Extraction, int Attempts, TokenUsage Usage, string AnsweredBy)
+{
+    public IReadOnlyList<ModelSpend> Spend { get; init; } = [new(AnsweredBy, Usage)];
+}
+
+/// <summary>Anything that turns an email into an extraction: one model, or a route across several.</summary>
+public interface IExtractor
+{
+    Task<ExtractionResult> Extract(string email, CancellationToken cancellationToken = default);
+}
 
 /// <summary>Turns a customer's email into a <see cref="TicketExtraction"/>.</summary>
-public sealed class TicketExtractor(IModelGateway gateway, string model = "claude-opus-5-5")
+public sealed class TicketExtractor(IModelGateway gateway, string model = "claude-opus-5-5") : IExtractor
 {
     private static readonly IReadOnlyDictionary<string, JsonElement> Schema = ExtractionSchema.Build();
 
